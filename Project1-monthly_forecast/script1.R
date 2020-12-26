@@ -46,13 +46,13 @@ fitstl%>% autoplot()+ xlab("Year") +
 
 monthplot(fitstl$time.series[, "seasonal"], main = "", ylab = "Seasonal", xlab = "Month")
 
-
+## test remainders
 stl_res = remainder(fitstl)
 Acf(stl_res,lag.max=30, main = "Remainder of STL Decomposition")
 Box.test(stl_res,type="Lj")
-# dwtest(fitstl,alt="two.sided") 
-# bgtest(fitstl,10) 
 
+
+## extract seasonal adjusted data
 stl_adj = seasadj(fitstl)
 autoplot(stl_adj, main = "Seasonally Adjusted Data") +theme_bw()
 
@@ -171,3 +171,4 @@ n10_fcast$upper = n10_fcast$upper + seasonC_rep
 n10_fcast$lower = n10_fcast$lower + seasonC_rep
 
 plot(n10_fcast, main = "Melbourne Temperature Forecast for Next 10 Years", ylab = "Average Temperature(\u00B0C)", xlab = "Year")
+
