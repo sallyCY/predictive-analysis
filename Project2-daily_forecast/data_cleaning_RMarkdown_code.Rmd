@@ -18,7 +18,10 @@ header-includes:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, results ="hold", tidy=TRUE, message = FALSE)
+
+# rmarkdown::render('data_cleaning_RMarkdown_code.Rmd', output_file = 'data_cleaning_RMarkdown_report.pdf', envir = new.env())
 ```
+
 
 ```{r}
 library(dplyr)
