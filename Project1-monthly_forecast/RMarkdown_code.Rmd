@@ -1,5 +1,6 @@
 ---
 title: "WealthData Analysis and Forecast"
+author: Sally Chen
 output: 
   pdf_document:
     toc: yes
