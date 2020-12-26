@@ -26,10 +26,8 @@ library(fpp)
 library(fpp2)
 library(seasonal)
 library(ggplot2)
-
 library(imputeTS) # imputation for ts
 ```
-
 
 ```{r}
 dailyweather = read.csv("DailyWeather.csv")
@@ -115,7 +113,6 @@ y3 # 15
 ## Missing Value Imputation
 ```{r}
 ts_df = ts(df_remove_naclust, frequency = 365.25, start = c(1999,8))
-
 ts_imputed = na_interpolation(ts_df, option = "linear") # linear interpolation
 ```
 
@@ -129,7 +126,6 @@ plot(ts_imputed[140:160, "wind"], type = "l", ylab = "Wind (km/h)", main = "Afte
 par(mfrow=c(1,2))
 plot(ts_df[3610:3680,"wind"], type = "l",  ylab = "Wind (km/h)", main = "Raw Data (Index 3610 to 3680)")
 plot(ts_imputed[3610:3680, "wind"], type = "l",  ylab = "Wind (km/h)", main = "After Linear Imputation")
-
 ```
 
 
@@ -137,7 +133,6 @@ plot(ts_imputed[3610:3680, "wind"], type = "l",  ylab = "Wind (km/h)", main = "A
 ```{r}
 # split train and test set
 split_index = length(ts_imputed[,6])*0.80
-
 lower = ts_imputed[,6][round(split_index)]
 upper = ts_imputed[,6][round(split_index)+1]
 
@@ -163,6 +158,3 @@ test_df = test %>% as.data.frame() %>% mutate(date = as.Date(date))
 write.csv(train_df, "train.csv", row.names = FALSE)
 write.csv(test_df, "test.csv", row.names = FALSE)
 ```
-
-
-
