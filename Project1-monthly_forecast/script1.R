@@ -48,7 +48,7 @@ monthplot(fitstl$time.series[, "seasonal"], main = "", ylab = "Seasonal", xlab =
 
 ## test remainders
 stl_res = remainder(fitstl)
-Acf(stl_res,lag.max=30, main = "Remainder of STL Decomposition")
+Acf(stl_res,lag.max=30, main = "Remainder of STL Decomposition") ## autocorrelation in lag 12
 Box.test(stl_res,type="Lj")
 
 
