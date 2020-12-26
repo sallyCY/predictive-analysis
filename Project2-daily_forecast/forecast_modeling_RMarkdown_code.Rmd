@@ -1,0 +1,97 @@
+---
+title: "Forecast Modelling"
+author: Sally Chen
+output: 
+  pdf_document:
+    toc: yes
+    toc_depth: '3'
+  html_document:
+    toc: yes
+    toc_depth: 3
+    toc_float:
+      collapsed: yes
+header-includes:
+  \usepackage{fvextra}
+  
+  \DefineVerbatimEnvironment{Highlighting}{Verbatim}{breaklines,commandchars=\\\{\}}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, results ="hold", tidy=TRUE, message = FALSE)
+
+# rmarkdown::render('forecast_modeling_RMarkdown_code.Rmd', output_file = 'forecast_modeling_RMarkdown_report.pdf', envir = new.env())
+```
+
+```{r}
+library(fpp)
+library(fpp2)
+library(forecast) #stl
+```
+
+```{r}
+## Load data and transform into ts data
+test = read.csv("test.csv")
+train = read.csv("train.csv")
+```
+
+
+
+## Train and Test Data Exploration
+```{r}
+test_ts = ts(test, frequency = 365.25, start = c(1999,08,18))
+train_ts = ts(train, frequency = 365.25, start = c(1999,08,18))
+
+```
+
+```{r}
+## Clear yearly seasonality in wind, max and min; seasonality with noise in sunshine; no seasonal pattern for rainfall.
+y = colnames(train_ts)
+par(mfrow=c(2,3))
+for (i in 1:5){
+  plot(train_ts[1:1096,i], type = "l", ylab = y[i])
+  lines(train_ts[1097:2192,i], col='red')
+  lines(train_ts[2193:3288,i], col = 'blue')
+  
+}
+```
+
+```{r}
+## Trend in daily minimum and maximum temperature
+ts_max= ts(train$max, frequency = 365.25, start = c(1999,08,18))
+ts_min = ts(train$min, frequency = 365.25, start = c(1999,08,18))
+par(mfrow=c(2,1))
+plot(ma(ts_max, order = 365), main = "Moving Average for Max Temperature", ylab = expression(degree~C))
+plot(ma(ts_min, order = 365), main = "Moving Average for Min Temperature", ylab = expression(degree~C))
+```
+
+```{r}
+## Backwards MA
+ma_bk=function(y, order, ...){
+  ma<-matrix(0,nrow(y),1)
+  for(i in order:nrow(y))
+  {
+    ma[i]<-mean(y[i-order+1:order])
+  }
+  ma[1:(order-1)]=NA
+  return(ma)
+}
+
+par(mfrow=c(2,1))
+mt_max = as.matrix(ts_max)
+plot(ma_bk(mt_max, 365), col = "black", type = "l",main = "Backward ma for Max Temperature", ylab ="")
+lines(ma_bk(mt_max, 365*2), col="red")
+lines(ma_bk(mt_max, 365*3), col = "blue")
+
+mt_min = as.matrix(ts_min)
+plot(ma_bk(mt_min, 365), col = "black", type = "l", main = "Backward ma for Min Temperature", ylab ="")
+lines(ma_bk(mt_min, 365*2), col="red")
+lines(ma_bk(mt_min, 365*3), col = "blue")
+
+## Plots
+par(mfrow=c(2,1))
+ts.plot(ts_max, main = "ts plot for Max Temperature", ylab = expression(degree~C))
+plot(ts_min, main = "ts plot for Min Temperature", ylab = expression(degree~C))
+
+
+```
+
