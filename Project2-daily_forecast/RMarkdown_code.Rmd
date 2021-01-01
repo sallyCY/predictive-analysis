@@ -1,0 +1,289 @@
+---
+title: "Part II: Analysis and Forecast Modelling"
+author: Sally Chen
+output: 
+  pdf_document:
+    toc: yes
+    toc_depth: '3'
+  html_document:
+    toc: yes
+    toc_depth: 3
+    toc_float:
+      collapsed: yes
+header-includes:
+  \usepackage{fvextra}
+  
+  \DefineVerbatimEnvironment{Highlighting}{Verbatim}{breaklines,commandchars=\\\{\}}
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, tidy=TRUE, message = FALSE)
+
+# rmarkdown::render('RMarkdown_code.Rmd', output_file = 'RMarkdown_report.pdf', envir = new.env())
+```
+
+
+```{r}
+library(fpp)
+library(fpp2)
+library(forecast)
+library(GGally)
+library(knitr)
+```
+
+
+```{r}
+# Load cleaned data
+full = read.csv("full.csv")
+train = read.csv("train.csv")
+test = read.csv("test.csv")
+```
+
+
+# Defining Weather Elements as Time Series Objects
+```{r}
+ts_full = ts(full, frequency = 365.25, start = c(1999,230))
+ts_train = ts(train, frequency = 365.25, start = c(1999,230))
+ts_test = ts(test, frequency = 365.25, start = c(2016,55))
+
+ts_max = ts_train[,"max"]
+ts_min = ts_train[,"min"]
+ts_sunshine = ts_train[,"sunshine"]
+ts_wind = ts_train[,"wind"]
+ts_rainfall = ts_train[,"rainfall"]
+
+```
+
+
+# Train and Test Data Exploration
+```{r, message=FALSE}
+# Check variables correlations
+GGally::ggpairs(train[,1:5])
+
+
+## Time series plots for weather elements
+elements = colnames(ts_train)
+par(mfrow=c(2,3))
+for (i in 1:5){
+  ts.plot(ts_train[,i], type = "l", ylab = elements[i])
+}
+
+```
+
+## Inspect seasonal patterns from weather elements
+```{r}
+# Sunshine -> seasonality, no trend
+fitstl_sunshine = stl(ts_sunshine, t.window = 365.25, s.window = 365.25)
+autoplot(fitstl_sunshine)
+par(mfrow=c(1,2))
+acf(remainder(fitstl_sunshine), main = "ACF of residual from seasonal decomposition")
+pacf(remainder(fitstl_sunshine), main = "PACF of residual from seasonal decomposition")
+
+# wind -> seasonality, no trend
+fitstl_wind = stl(ts_wind, t.window = 365.25, s.window = 365.25)
+autoplot(fitstl_wind)
+par(mfrow=c(1,2))
+acf(remainder(fitstl_wind), main = "ACF of residual from seasonal decomposition")
+pacf(remainder(fitstl_wind), main = "PACF of residual from seasonal decomposition")
+
+# rainfall -> no seasonality, no trend
+fitstl_rainfall = stl(ts_rainfall, t.window = 365.25, s.window = 365.25)
+autoplot(fitstl_rainfall)
+par(mfrow=c(1,2))
+acf(remainder(fitstl_rainfall), main = "ACF of residual from seasonal decomposition")
+pacf(remainder(fitstl_wind), main = "PACF of residual from seasonal decomposition")
+```
+
+
+## Analyse trend in daily minimum and maximum temperature
+```{r}
+## use moving average
+par(mfrow=c(2,1))
+plot(ma(ts_max, order = 365), main = "Moving Average for Max Temperature", ylab = expression(degree~C))
+plot(ma(ts_min, order = 365), main = "Moving Average for Min Temperature", ylab = expression(degree~C))
+```
+
+# Building models to predict maximum temperature
+## 1. Linear model with a Fourier term to capture seasonality
+```{r}
+# Fit a linear trend with seasonality using tslm()
+tslm_max = tslm(ts_max ~ trend+ts_rainfall+ts_sunshine+ts_wind+fourier(ts_max,K=2))
+summary(tslm_max)
+AIC(tslm_max) # AIC = 33683.01
+
+plot(ts_max, col = "grey", main = "Fitted Value from Linear Model", ylab = expression(degree~C))
+lines(tslm_max$fitted.values)
+
+## Model diagnosis
+par(mfrow=c(2,1))
+acf(tslm_max$residuals, main = "ACF of residual from fitted model") # lag q = 2
+pacf(tslm_max$residuals, main = "PACF of residual from fitted model") # lag p = 2
+
+Box.test(tslm_max$residuals, type = "Lj") #autocorrelation different from 0
+dwtest(tslm_max, alternative = "two")
+bgtest(tslm_max, 20)
+
+```
+
+## 2. Dynamic Regression with ARIMA(2,0,2) error
+```{r}
+# Fit a dynamic regression to capture the dynamics left in the residuals
+dr_max = Arima(ts_max, xreg = cbind(ts_rainfall,ts_sunshine,ts_wind,fourier(ts_max,K=2)), order=c(2,0,2))
+summary(dr_max) # AIC = 32213.94
+
+plot(ts_max, col = "grey", main = "Fitted Value from Dynamic Regression with ARIMA(2,0,2) errors", ylab = expression(degree~C))
+lines(dr_max$fitted)
+
+par(mfrow=c(2,1))
+acf(dr_max$residuals, main = "ACF of residual from fitted model")
+pacf(dr_max$residuals, main = "PACF of residual from fitted model")
+Box.test(dr_max$residuals)
+
+## Construct a function to calculate p-value for fitted models
+p_value = function(model){
+  t_fit = model$coef/(sqrt(diag(model$var.coef)))
+  p_fit = 2*pnorm(abs(t_fit), mean = 0, sd = 1, lower.tail = FALSE)
+  
+  return(p_fit)
+}
+p_value(dr_max)
+
+
+# Forecast using fitted model
+fcast_rainfall = forecast(ts_rainfall, method = "ets", h=1508)
+fcast_sunshine = forecast(ts_sunshine, method="ets", h=1508)
+fcast_wind = forecast(ts_wind, method="ets", h=1508)
+
+fcast_xreg = cbind(fcast_rainfall$mean, fcast_sunshine$mean, fcast_wind$mean, fourier(ts_max,K=2,h=1508))
+colnames(fcast_xreg) = names(dr_max$coef)[-c(1:5)]
+
+fcast1 = forecast(dr_max, xreg = fcast_xreg, h=1508)
+par(mfrow=c(1,1))
+plot(fcast1)
+accuracy(fcast1, ts_test[,"max"])
+```
+
+## 3. Dynamic Regression with ARIMA(5,1,0) error
+```{r}
+# Fit another dynamic regression using auto arima
+dr2_max = auto.arima(ts_max, xreg = cbind(ts_rainfall,ts_sunshine,ts_wind,fourier(ts_max,K=2)))
+
+summary(dr2_max) # ARIMA(5,1,0), AIC = 32894.15
+
+plot(ts_max, col = "grey", main = "Fitted Value from Dynamic Regression with ARIMA(5,1,0) errors", ylab = expression(degree~C))
+lines(dr2_max$fitted)
+
+par(mfrow = c(2,1))
+acf(dr2_max$residuals, main = "ACF of residual from fitted model")
+pacf(dr2_max$residuals, main = "PACF of residual from fitted model")
+Box.test(dr2_max$residuals)
+
+
+# Forecast using fitted model
+fcast2 = forecast(dr2_max, xreg = fcast_xreg, h=1508)
+par(mfrow=c(1,1))
+plot(fcast2)
+accuracy(fcast2, ts_test[,"max"])
+```
+
+## 4. Dynamic Regression with ARIMA(2,0,2) error and lag predictors
+```{r}
+# Fit a dynamic regression with lag values
+len_train = length(ts_train[,"max"])
+lag1_sunshine = c(NA,ts_sunshine[1:(len_train-1)])
+lag2_sunshine = c(rep(NA,2),ts_sunshine[1:(len_train-2)])
+lag1_rainfall = c(NA,ts_rainfall[1:(len_train-1)])
+lag2_rainfall = c(rep(NA,2),ts_rainfall[1:(len_train-2)])
+lag1_wind = c(NA,ts_wind[1:(len_train-1)])
+lag2_wind = c(rep(NA,2),ts_wind[1:(len_train-2)])
+
+drlag_max = Arima(ts_max, xreg = cbind(ts_rainfall,lag1_rainfall,lag2_rainfall, ts_sunshine,lag1_sunshine,lag2_sunshine,ts_wind,lag1_wind,lag2_wind, fourier(ts_max,K=2)), order=c(2,0,2))
+summary(drlag_max) #AIC = 31560.4
+
+plot(ts_max, col = "grey", main = "Fitted value from Dynamic Regression with ARIMA(2,0,2) errors", ylab = expression(degree~C))
+lines(drlag_max$fitted)
+
+par(mfrow=c(2,1))
+acf(drlag_max$residuals[3:len_train], main = "ACF of residual from fitted model")
+pacf(drlag_max$residuals[3:len_train], main = "PACF of residual from fitted model")
+Box.test(drlag_max$residuals)
+
+
+# Forecast using fitted model
+fcast_lag1_rainfall = c(ts_sunshine[6034],fcast_rainfall$mean[1:1507])
+fcast_lag2_rainfall = c(ts_sunshine[6033:6034],fcast_rainfall$mean[1:1506])
+fcast_lag1_sunshine = c(ts_sunshine[6034],fcast_sunshine$mean[1:1507])
+fcast_lag2_sunshine = c(ts_sunshine[6033:6034],fcast_sunshine$mean[1:1506])
+fcast_lag1_wind = c(ts_wind[6034],fcast_wind$mean[1:1507])
+fcast_lag2_wind = c(ts_wind[6033:6034],fcast_wind$mean[1:1506])
+
+fcast_lag_xreg = cbind(fcast_rainfall$mean,fcast_lag1_rainfall,fcast_lag2_rainfall,fcast_sunshine$mean,fcast_lag1_sunshine,fcast_lag2_sunshine,fcast_wind$mean,fcast_lag1_wind,fcast_lag2_wind, fourier(ts_max,K=2,h=1508))
+colnames(fcast_lag_xreg) = names(drlag_max$coef)[-c(1:5)]
+
+fcast3 = forecast(drlag_max, xreg = fcast_lag_xreg, h=1508)
+par(mfrow=c(1,1))
+plot(fcast3)
+accuracy(fcast3, ts_test[,"max"])
+```
+
+
+## Use the best model (No.4) to build full temperature forecast
+```{r}
+full_len = length(ts_full[,"max"])
+full_max = ts_full[,"max"]
+full_sunshine = ts_full[,"sunshine"]
+full_rainfall = ts_full[,"rainfall"]
+full_wind = ts_full[,"wind"]
+
+full_lag1_sunshine = c(NA,full_sunshine[1:(full_len-1)])
+full_lag2_sunshine = c(rep(NA,2),full_sunshine[1:(full_len-2)])
+full_lag1_rainfall = c(NA,full_rainfall[1:(full_len-1)])
+full_lag2_rainfall = c(rep(NA,2),full_rainfall[1:(full_len-2)])
+full_lag1_wind = c(NA,full_wind[1:(full_len-1)])
+full_lag2_wind = c(rep(NA,2),full_wind[1:(full_len-2)])
+
+finaldr_max = Arima(full_max, xreg = cbind(full_sunshine,full_lag1_sunshine,full_lag2_sunshine, full_rainfall,full_lag1_rainfall,full_lag2_rainfall, full_wind,full_lag1_wind,full_lag2_wind, fourier(full_max,K=2)), order = c(2,0,2))
+summary(finaldr_max)
+
+plot(full_max, col = "grey", main = "Fitted value from predictive model for max temperature", ylab = expression(degree~C))
+lines(finaldr_max$fitted)
+
+par(mfrow=c(2,1))
+acf(finaldr_max$residuals[3:full_len], main = "ACF of residual from fitted model")
+pacf(finaldr_max$residuals[3:full_len], main = "PACF of residual from fitted model")
+Box.test(finaldr_max$residuals)
+
+
+## build forecast
+fcast_full_sunshine = forecast(full_sunshine, method = "ets", h = 365)
+fcast_full_rainfall = forecast(full_rainfall, method = "ets", h = 365)
+fcast_full_wind = forecast(full_wind, method = "ets", h = 365)
+fcast_full_lag1_sunshine = c(full_sunshine[7542],fcast_full_sunshine$mean[1:364])
+fcast_full_lag2_sunshine = c(full_sunshine[7541:7542],fcast_full_sunshine$mean[1:363])
+fcast_full_lag1_rainfall = c(full_rainfall[7542],fcast_full_rainfall$mean[1:364])
+fcast_full_lag2_rainfall = c(full_rainfall[7541:7542],fcast_full_rainfall$mean[1:363])
+fcast_full_lag1_wind = c(full_wind[7542],fcast_full_wind$mean[1:364])
+fcast_full_lag2_wind = c(full_wind[7541:7542],fcast_full_wind$mean[1:363])
+
+fcast_full_xreg = cbind(fcast_full_sunshine$mean,fcast_full_lag1_sunshine,fcast_full_lag2_sunshine, fcast_full_rainfall$mean,fcast_full_lag1_rainfall,fcast_full_lag2_rainfall, fcast_full_wind$mean, fcast_full_lag1_wind, fcast_full_lag2_wind, fourier(full_max,K=2, h=365))
+colnames(fcast_full_xreg) = names(finaldr_max$coef)[-c(1:5)]
+
+fcast_full_max = forecast(finaldr_max,xreg = fcast_full_xreg, h=365)
+par(mfrow=c(1,1))
+plot(fcast_full_max)
+
+
+max_temperature_result = data.frame(seq(as.Date("2020-04-11"), by="days", length.out = 365), round(fcast_full_max$mean,2))
+colnames(max_temperature_result) = c("Date", "Forecasted Max Temperature")
+
+
+
+kable(max_temperature_result)
+
+```
+
+
+# Building models to predict the number of extreme heat days
+
+
