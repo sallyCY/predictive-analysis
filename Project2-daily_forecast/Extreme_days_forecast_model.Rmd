@@ -1,0 +1,29 @@
+---
+title: "Part III: Extreme Days Forecast Model"
+author: Sally Chen
+output: 
+  pdf_document:
+    toc: yes
+    toc_depth: '3'
+  html_document:
+    toc: yes
+    toc_depth: 3
+    toc_float:
+      collapsed: yes
+header-includes:
+  \usepackage{fvextra}
+  
+  \DefineVerbatimEnvironment{Highlighting}{Verbatim}{breaklines,commandchars=\\\{\}}
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, tidy=TRUE, message = FALSE)
+
+# rmarkdown::render('RMarkdown_code.Rmd', output_file = 'RMarkdown_report.pdf', envir = new.env())
+```
+
+
+
+
+# Building models to predict the number of extreme heat days
