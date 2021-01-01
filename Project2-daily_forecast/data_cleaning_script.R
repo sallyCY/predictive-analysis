@@ -5,6 +5,7 @@ library(seasonal)
 library(ggplot2)
 library(imputeTS) # imputation for ts
 
+##### Part I: Data pre-processing #####
 
 dailyweather = read.csv("DailyWeather.csv")
 colnames(dailyweather)
@@ -109,11 +110,14 @@ length(train) + length(test) == length(ts_imputed)
 # Check start and end dates of test data
 as.Date(train[,"date"])[6034]
 
-train_df = train %>% as.data.frame() %>% mutate(date = as.Date(date))
-test_df = test %>% as.data.frame() %>% mutate(date = as.Date(date))
+df_full = ts_imputed %>% as.data.frame() %>% mutate(date = as.Date(date))
+df_train = train %>% as.data.frame() %>% mutate(date = as.Date(date))
+df_test = test %>% as.data.frame() %>% mutate(date = as.Date(date))
 
-write.csv(train_df, "train.csv", row.names = FALSE)
-write.csv(test_df, "test.csv", row.names = FALSE)
 
+# Save train and test data
+write.csv(df_full, "full.csv", row.names = FALSE)
+write.csv(df_train, "train.csv", row.names = FALSE)
+write.csv(df_test, "test.csv", row.names = FALSE)
 
 
