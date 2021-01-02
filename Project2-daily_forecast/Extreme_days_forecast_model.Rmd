@@ -23,7 +23,38 @@ knitr::opts_chunk$set(echo = TRUE, tidy=TRUE, message = FALSE)
 # rmarkdown::render('RMarkdown_code.Rmd', output_file = 'RMarkdown_report.pdf', envir = new.env())
 ```
 
+# Load and Define Time Series Objects
+```{r}
+library(fpp)
+library(fpp2)
+library(forecast)
+library(GGally)
+library(knitr)
+```
 
 
+```{r}
+# Load cleaned data
+full = read.csv("full.csv")
+train = read.csv("train.csv")
+test = read.csv("test.csv")
+```
 
-# Building models to predict the number of extreme heat days
+
+```{r}
+ts_full = ts(full, frequency = 365.25, start = c(1999,230))
+ts_train = ts(train, frequency = 365.25, start = c(1999,230))
+ts_test = ts(test, frequency = 365.25, start = c(2016,55))
+
+ts_max = ts_train[,"max"]
+ts_min = ts_train[,"min"]
+ts_sunshine = ts_train[,"sunshine"]
+ts_wind = ts_train[,"wind"]
+ts_rainfall = ts_train[,"rainfall"]
+
+```
+
+\newpage
+
+
+# Build models to predict the number of extreme heat days
