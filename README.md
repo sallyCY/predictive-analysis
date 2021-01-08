@@ -1,10 +1,10 @@
 # predictive-analysis
 
-Time series and forecast analysis on weather data of different frequencies.
+Time series and forecast analysis on weather data of different frequencies.  
 
 
 
-Below are some highlights of the techniques used.
+Below are some highlights of the techniques used:
 
 ### Project 1
 
