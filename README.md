@@ -26,6 +26,7 @@ Below are some highlights of the techniques used:
 >  **Data Cleaning**
 >
 >  * Linear imputation (non-periodic time series data)
+>  * Training and test datasets split
 >
 >  **Modelling**
 >
